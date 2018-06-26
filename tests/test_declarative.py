@@ -3,7 +3,7 @@ import gino
 from asyncpg.exceptions import (
     UniqueViolationError, ForeignKeyViolationError, CheckViolationError)
 
-from .models import User, UserSetting
+from .models import User, UserSetting, PG_URL
 
 pytestmark = pytest.mark.asyncio
 db = gino.Gino()
@@ -222,3 +222,29 @@ async def test_abstract_model_error():
 
     with pytest.raises(TypeError, match='AbstractModel is abstract'):
         await AbstractModel.get(1)
+
+
+async def test_261_separate_column_name():
+    db = gino.Gino()
+
+    class DBUserGroup(db.Model):
+        __tablename__ = 'usergroup'
+        id = db.Column('ug_id', db.Integer(), primary_key=True)
+        name = db.Column('ug_name', db.String())
+
+    assert DBUserGroup.id.name == 'ug_id'
+    assert DBUserGroup.name.name == 'ug_name'
+
+    await db.set_bind(PG_URL)
+    try:
+        await db.gino.create_all()
+
+        obj = await DBUserGroup.create(id=123, name='hello')
+        assert obj.id == 123
+        assert obj.name == 'hello'
+
+        row = await db.first('SELECT ug_id, ug_name FROM usergroup')
+        assert row['ug_id'] == 123
+        assert row['ug_name'] == 'hello'
+    finally:
+        await db.gino.drop_all()

@@ -126,7 +126,8 @@ class Model:
                     v = updates[k] = v(sub_cls)
                 if isinstance(v, sa.Column):
                     v = v.copy()
-                    v.name = k
+                    if v.name is None:
+                        v.name = k
                     columns.append(v)
                     updates[k] = sub_cls.__attr_factory__(v)
                 elif isinstance(v, (sa.Index, sa.Constraint)):
